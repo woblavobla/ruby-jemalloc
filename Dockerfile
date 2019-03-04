@@ -28,8 +28,7 @@ ENV RUBYGEMS_VERSION 3.0.1
 #   we purge system ruby later to make sure our final image uses what we just built
 RUN set -ex \
 	\
-	&& savedAptMark="$(apt-mark showmanual)" \
-	&& apt-get update && apt-get install -y --no-install-recommends \
+	&& buildDeps=' \
 		autoconf \
 		bison \
 		dpkg-dev \
@@ -37,7 +36,6 @@ RUN set -ex \
 		libbz2-dev \
 		libgdbm-dev \
 		libglib2.0-dev \
-		libgmp-dev \
 		libncurses-dev \
 		libreadline-dev \
 		libxml2-dev \
@@ -46,7 +44,10 @@ RUN set -ex \
 		ruby \
 		wget \
 		xz-utils \
-		libjemalloc-dev \
+	' \
+	&& apt-get update \
+	&& apt-get install -y --no-install-recommends $buildDeps \
+  	&& apt-get install -y --no-install-recommends libjemalloc-dev \
 	&& rm -rf /var/lib/apt/lists/* \
 	\
 	&& wget -O ruby.tar.xz "https://cache.ruby-lang.org/pub/ruby/${RUBY_MAJOR%-rc}/ruby-$RUBY_VERSION.tar.xz" \
@@ -77,17 +78,10 @@ RUN set -ex \
 	&& make -j "$(nproc)" \
 	&& make install \
 	\
-	&& apt-mark auto '.*' > /dev/null \
-	&& apt-mark manual $savedAptMark \
-	&& find /usr/local -type f -executable -not \( -name '*tkinter*' \) -exec ldd '{}' ';' \
-		| awk '/=>/ { print $(NF-1) }' \
-		| sort -u \
-		| xargs -r dpkg-query --search \
-		| cut -d: -f1 \
-		| sort -u \
-		| xargs -r apt-mark manual \
-	&& apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-	\
+	&& dpkg-query --show --showformat '${package}\n' \
+		| grep -P '^libreadline\d+$' \
+		| xargs apt-mark manual \
+	&& apt-get purge -y --auto-remove $buildDeps \
 	&& cd / \
 	&& rm -r /usr/src/ruby \
 # make sure bundled "rubygems" is older than RUBYGEMS_VERSION (https://github.com/docker-library/ruby/issues/246)
