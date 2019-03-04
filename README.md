@@ -1,2 +1,2 @@
 # ruby-jemalloc
-Ruby builded with jemalloc
+Ruby 2.5.3 builded with jemalloc 
